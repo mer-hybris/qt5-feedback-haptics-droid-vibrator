@@ -1,0 +1,4 @@
+QtFeedback Droid Vibrator Plugin
+--------------------------------
+
+This plugin provides haptic feedback effects via libhybris libvibrator.
