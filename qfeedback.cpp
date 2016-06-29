@@ -64,11 +64,15 @@
 
 QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
     : QObject(parent)
+    , QFeedbackHapticsInterface()
     , QFeedbackThemeInterface()
     , m_profile(this)
     , m_profileEnablesVibra(false)
     , m_profileTouchscreenVibraLevel(0)
     , m_durations()
+    , m_actuator(createFeedbackActuator(this, 2))
+    , m_activeEffect(Q_NULLPTR)
+    , m_actuatorEnabled(true)
 {
     PLUGIN_DEBUG("Initializing plugin");
 
@@ -188,4 +192,104 @@ bool QFeedbackDroidVibrator::play(QFeedbackEffect::Effect effect)
 QFeedbackInterface::PluginPriority QFeedbackDroidVibrator::pluginPriority()
 {
     return QFeedbackInterface::PluginLowPriority;
+}
+
+QList<QFeedbackActuator*> QFeedbackDroidVibrator::actuators()
+{
+    return QList<QFeedbackActuator*>() << m_actuator;
+}
+
+void QFeedbackDroidVibrator::setActuatorProperty(const QFeedbackActuator &, ActuatorProperty prop, const QVariant &value)
+{
+    switch (prop) {
+        case Enabled: {
+            bool old = m_actuatorEnabled;
+            m_actuatorEnabled = value.toBool();
+            if (old != m_actuatorEnabled && !m_actuatorEnabled && m_activeEffect) {
+                setEffectState(m_activeEffect, QFeedbackEffect::Stopped);
+                m_activeEffect = 0;
+            }
+            break;
+        }
+        default: break;
+    }
+}
+
+QVariant QFeedbackDroidVibrator::actuatorProperty(const QFeedbackActuator &, ActuatorProperty prop)
+{
+    switch (prop) {
+        case Name:    return QLatin1String("DROID_VIBRATOR");
+        case State:   return QFeedbackActuator::Ready;
+        case Enabled: return m_actuatorEnabled;
+        default:      return QVariant();
+    }
+}
+
+bool QFeedbackDroidVibrator::isActuatorCapabilitySupported(const QFeedbackActuator &, QFeedbackActuator::Capability)
+{
+    return false; // we don't support envelope or periodicity (since we don't support changing intensity level).
+}
+
+void QFeedbackDroidVibrator::updateEffectProperty(const QFeedbackHapticsEffect *effect, QFeedbackHapticsInterface::EffectProperty prop)
+{
+    if (!m_actuatorEnabled)
+        return;
+
+    if (m_activeEffect != effect)
+        return;
+
+    if (prop == QFeedbackHapticsInterface::Duration) {
+        PLUGIN_DEBUG("Playing custom effect due to property update (%d ms)", effect->duration());
+        setEffectState(effect, QFeedbackEffect::Running);
+    }
+}
+
+void QFeedbackDroidVibrator::setEffectState(const QFeedbackHapticsEffect *effect, QFeedbackEffect::State state)
+{
+    if (!m_actuatorEnabled)
+        return;
+
+    switch (state) {
+        case QFeedbackEffect::Running: startCustomEffect(effect); break;
+        case QFeedbackEffect::Stopped: stopCustomEffect(effect); break;
+        case QFeedbackEffect::Paused:  // not supported
+        case QFeedbackEffect::Loading: // not supported
+        default: break;
+    }
+}
+
+QFeedbackEffect::State QFeedbackDroidVibrator::effectState(const QFeedbackHapticsEffect *effect)
+{
+    if (m_activeEffect == effect)
+        return QFeedbackEffect::Running;
+    return QFeedbackEffect::Stopped;
+}
+
+void QFeedbackDroidVibrator::timerEvent(QTimerEvent *event)
+{
+    if (event->timerId() == m_stateChangeTimerId) {
+        // the specified duration has elapsed, mark the effect as stopped.
+        stopCustomEffect(m_activeEffect);
+    }
+}
+
+void QFeedbackDroidVibrator::startCustomEffect(const QFeedbackHapticsEffect *effect)
+{
+    if ((m_activeEffect == effect || !m_activeEffect) && effect->duration() > 0) {
+        m_activeEffect = const_cast<QFeedbackHapticsEffect*>(effect);
+        m_stateChangeTimerId = QObject::startTimer(m_activeEffect->duration());
+        PLUGIN_DEBUG("Playing custom effect due to state change (%d ms)", m_activeEffect->duration());
+        vibrator_on(m_activeEffect->duration());
+    }
+}
+
+void QFeedbackDroidVibrator::stopCustomEffect(const QFeedbackHapticsEffect *effect)
+{
+    if (m_activeEffect == effect) {
+        PLUGIN_DEBUG("Stopping custom effect due to state change");
+        vibrator_off();
+        killTimer(m_stateChangeTimerId);
+        m_activeEffect = 0;
+        m_stateChangeTimerId = 0;
+    }
 }

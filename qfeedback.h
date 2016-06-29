@@ -43,6 +43,7 @@
 #define QFEEDBACK_DROID_VIBRATOR_H
 
 #include <QObject>
+#include <QTimerEvent>
 #include <qfeedbackplugininterfaces.h>
 
 #include <profile.h>
@@ -50,20 +51,36 @@
 
 QT_BEGIN_HEADER
 
-class QFeedbackDroidVibrator : public QObject, public QFeedbackThemeInterface {
+class QFeedbackDroidVibrator : public QObject, public QFeedbackHapticsInterface, public QFeedbackThemeInterface {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtFeedbackPlugin" FILE "droid-vibrator.json")
+    Q_INTERFACES(QFeedbackHapticsInterface)
     Q_INTERFACES(QFeedbackThemeInterface)
 
 public:
     QFeedbackDroidVibrator(QObject *parent = 0);
     ~QFeedbackDroidVibrator();
 
-    virtual bool play(QFeedbackEffect::Effect);
-    virtual QFeedbackInterface::PluginPriority pluginPriority();
+    virtual bool play(QFeedbackEffect::Effect) Q_DECL_OVERRIDE;
+    virtual QFeedbackInterface::PluginPriority pluginPriority() Q_DECL_OVERRIDE;
+
+    virtual QList<QFeedbackActuator*> actuators() Q_DECL_OVERRIDE;
+    virtual void setActuatorProperty(const QFeedbackActuator &, ActuatorProperty, const QVariant &) Q_DECL_OVERRIDE;
+    virtual QVariant actuatorProperty(const QFeedbackActuator &, ActuatorProperty) Q_DECL_OVERRIDE;
+    virtual bool isActuatorCapabilitySupported(const QFeedbackActuator &, QFeedbackActuator::Capability) Q_DECL_OVERRIDE;
+    virtual void updateEffectProperty(const QFeedbackHapticsEffect *, EffectProperty) Q_DECL_OVERRIDE;
+    virtual void setEffectState(const QFeedbackHapticsEffect *, QFeedbackEffect::State) Q_DECL_OVERRIDE;
+    virtual QFeedbackEffect::State effectState(const QFeedbackHapticsEffect *) Q_DECL_OVERRIDE;
+
+protected:
+    void timerEvent(QTimerEvent *event);
 
 private slots:
     void deviceProfileSettingsChanged();
+
+private:
+    void stopCustomEffect(const QFeedbackHapticsEffect *effect);
+    void startCustomEffect(const QFeedbackHapticsEffect *effect);
 
 private:
     // profile change detection (normal / silent / airplane etc)
@@ -71,6 +88,11 @@ private:
     bool m_profileEnablesVibra;
     int m_profileTouchscreenVibraLevel;
     int m_durations[QFeedbackEffect::NumberOfEffects];
+
+    QFeedbackActuator *m_actuator;
+    QFeedbackHapticsEffect *m_activeEffect;
+    bool m_actuatorEnabled;
+    int m_stateChangeTimerId;
 };
 
 QT_END_HEADER

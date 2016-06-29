@@ -8,6 +8,7 @@ PLUGIN_TYPE = feedback
 
 HEADERS += qfeedback.h
 SOURCES += qfeedback.cpp
+OTHER_FILES += droid-vibrator.json
 
 CONFIG += link_pkgconfig
 PKGCONFIG += android-headers libhardware libvibrator
