@@ -44,10 +44,12 @@
 
 #include <QObject>
 #include <QTimerEvent>
+#include <QLoggingCategory>
 #include <qfeedbackplugininterfaces.h>
 
 #include <profile.h>
 
+Q_DECLARE_LOGGING_CATEGORY(qtFeedbackDroidVibrator)
 
 QT_BEGIN_HEADER
 
