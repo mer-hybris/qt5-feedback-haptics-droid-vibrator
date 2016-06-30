@@ -47,30 +47,25 @@
 
 #include <QtCore/QFile>
 #include <QtCore/QSettings>
+#include <QtCore/QLoggingCategory>
 
 #include <hardware_legacy/vibrator.h>
 
-// Uncomment the following line for debug info
-//#define DROID_VIBRATOR_DEBUG
-
-#define DROID_VIBRATOR_TAG "qtfeedback-droid-vibrator: "
-
-#if defined(DROID_VIBRATOR_DEBUG)
-#  define PLUGIN_DEBUG(fmt, ...) qDebug(DROID_VIBRATOR_TAG fmt, ##__VA_ARGS__)
-#else
-#  define PLUGIN_DEBUG(fmt, ...)
-#endif
-
+Q_LOGGING_CATEGORY(qtFeedbackDroidVibrator, "Qt.Feedback.DroidVibrator")
 
 QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
     : QObject(parent)
+    , QFeedbackHapticsInterface()
     , QFeedbackThemeInterface()
     , m_profile(this)
     , m_profileEnablesVibra(false)
     , m_profileTouchscreenVibraLevel(0)
     , m_durations()
+    , m_actuator(createFeedbackActuator(this, 2))
+    , m_activeEffect(Q_NULLPTR)
+    , m_actuatorEnabled(true)
 {
-    PLUGIN_DEBUG("Initializing plugin");
+    qCDebug(qtFeedbackDroidVibrator) << "Initializing plugin";
 
     // Defaults
     m_durations[QFeedbackEffect::Press] = 20;
@@ -93,7 +88,7 @@ QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
 #define READ_SETTING(x) \
         m_durations[QFeedbackEffect::x] = \
         settings.value(#x, m_durations[QFeedbackEffect::x]).value<int>(); \
-        PLUGIN_DEBUG("Reading setting for %s: %d", #x, m_durations[QFeedbackEffect::x]);
+        qCDebug(qtFeedbackDroidVibrator) << "Reading setting for" << #x << ":" << m_durations[QFeedbackEffect::x];
 
         READ_SETTING(Press)
         READ_SETTING(Release)
@@ -111,7 +106,7 @@ QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
 
 #undef READ_SETTING
     } else {
-        PLUGIN_DEBUG("Not loading settings (%s does not exist)", DROID_VIBRATOR_SETTINGS);
+        qCDebug(qtFeedbackDroidVibrator) << "Not loading settings (" << DROID_VIBRATOR_SETTINGS << "does not exist)";
     }
 
     connect(&m_profile, SIGNAL(activeProfileChanged(QString)),
@@ -126,7 +121,7 @@ QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
 
 QFeedbackDroidVibrator::~QFeedbackDroidVibrator()
 {
-    PLUGIN_DEBUG("Deinitializing plugin");
+    qCDebug(qtFeedbackDroidVibrator) << "Deinitializing plugin";
 }
 
 void QFeedbackDroidVibrator::deviceProfileSettingsChanged()
@@ -135,16 +130,16 @@ void QFeedbackDroidVibrator::deviceProfileSettingsChanged()
     m_profileEnablesVibra = m_profile.isVibrationEnabled(profile);
     m_profileTouchscreenVibraLevel = m_profile.touchscreenVibrationLevel(profile);
 
-    PLUGIN_DEBUG("Profile settings changed: enabled=%s, level=%d",
-            m_profileEnablesVibra ? "true" : "false",
-            m_profileTouchscreenVibraLevel);
+    qCDebug(qtFeedbackDroidVibrator) << "Profile settings changed: enabled:"
+                                     << m_profileEnablesVibra
+                                     << "level:" << m_profileTouchscreenVibraLevel;
 }
 
 bool QFeedbackDroidVibrator::play(QFeedbackEffect::Effect effect)
 {
     // If vibra is disabled, disable effects
     if (Q_UNLIKELY(!m_profileEnablesVibra)) {
-        PLUGIN_DEBUG("Not playing effect (vibra disabled)");
+        qCDebug(qtFeedbackDroidVibrator) << "Not playing effect (vibra disabled)";
         return false;
     }
 
@@ -153,7 +148,7 @@ bool QFeedbackDroidVibrator::play(QFeedbackEffect::Effect effect)
         switch (effect) {
             case QFeedbackEffect::PressWeak:
             case QFeedbackEffect::ReleaseWeak:
-                PLUGIN_DEBUG("Not playing effect (vibra level setting)");
+                qCDebug(qtFeedbackDroidVibrator) << "Not playing effect (vibra level setting)";
                 return false;
             default:
                 break;
@@ -174,11 +169,11 @@ bool QFeedbackDroidVibrator::play(QFeedbackEffect::Effect effect)
         case QFeedbackEffect::Appear:
         case QFeedbackEffect::Disappear:
         case QFeedbackEffect::Move:
-            PLUGIN_DEBUG("Playing effect #%d (%d ms)", effect, m_durations[effect]);
+            qCDebug(qtFeedbackDroidVibrator) << "Playing effect #" << effect << "(" << m_durations[effect] << "ms)";
             vibrator_on(m_durations[effect]);
             return true;
         default:
-            PLUGIN_DEBUG("Unknown or undefined effect #%d", effect);
+            qCDebug(qtFeedbackDroidVibrator) << "Unknown or undefined effect #" << effect;
             break;
     }
 
@@ -188,4 +183,104 @@ bool QFeedbackDroidVibrator::play(QFeedbackEffect::Effect effect)
 QFeedbackInterface::PluginPriority QFeedbackDroidVibrator::pluginPriority()
 {
     return QFeedbackInterface::PluginLowPriority;
+}
+
+QList<QFeedbackActuator*> QFeedbackDroidVibrator::actuators()
+{
+    return QList<QFeedbackActuator*>() << m_actuator;
+}
+
+void QFeedbackDroidVibrator::setActuatorProperty(const QFeedbackActuator &, ActuatorProperty prop, const QVariant &value)
+{
+    switch (prop) {
+        case Enabled: {
+            bool old = m_actuatorEnabled;
+            m_actuatorEnabled = value.toBool();
+            if (old != m_actuatorEnabled && !m_actuatorEnabled && m_activeEffect) {
+                setEffectState(m_activeEffect, QFeedbackEffect::Stopped);
+                m_activeEffect = 0;
+            }
+            break;
+        }
+        default: break;
+    }
+}
+
+QVariant QFeedbackDroidVibrator::actuatorProperty(const QFeedbackActuator &, ActuatorProperty prop)
+{
+    switch (prop) {
+        case Name:    return QLatin1String("DROID_VIBRATOR");
+        case State:   return QFeedbackActuator::Ready;
+        case Enabled: return m_actuatorEnabled;
+        default:      return QVariant();
+    }
+}
+
+bool QFeedbackDroidVibrator::isActuatorCapabilitySupported(const QFeedbackActuator &, QFeedbackActuator::Capability)
+{
+    return false; // we don't support envelope or periodicity (since we don't support changing intensity level).
+}
+
+void QFeedbackDroidVibrator::updateEffectProperty(const QFeedbackHapticsEffect *effect, QFeedbackHapticsInterface::EffectProperty prop)
+{
+    if (!m_actuatorEnabled)
+        return;
+
+    if (m_activeEffect != effect)
+        return;
+
+    if (prop == QFeedbackHapticsInterface::Duration) {
+        qCDebug(qtFeedbackDroidVibrator) << "Playing custom effect due to property update (" << effect->duration() << "ms)";
+        setEffectState(effect, QFeedbackEffect::Running);
+    }
+}
+
+void QFeedbackDroidVibrator::setEffectState(const QFeedbackHapticsEffect *effect, QFeedbackEffect::State state)
+{
+    if (!m_actuatorEnabled)
+        return;
+
+    switch (state) {
+        case QFeedbackEffect::Running: startCustomEffect(effect); break;
+        case QFeedbackEffect::Stopped: stopCustomEffect(effect); break;
+        case QFeedbackEffect::Paused:  // not supported
+        case QFeedbackEffect::Loading: // not supported
+        default: break;
+    }
+}
+
+QFeedbackEffect::State QFeedbackDroidVibrator::effectState(const QFeedbackHapticsEffect *effect)
+{
+    if (m_activeEffect == effect)
+        return QFeedbackEffect::Running;
+    return QFeedbackEffect::Stopped;
+}
+
+void QFeedbackDroidVibrator::timerEvent(QTimerEvent *event)
+{
+    if (event->timerId() == m_stateChangeTimerId) {
+        // the specified duration has elapsed, mark the effect as stopped.
+        stopCustomEffect(m_activeEffect);
+    }
+}
+
+void QFeedbackDroidVibrator::startCustomEffect(const QFeedbackHapticsEffect *effect)
+{
+    if ((m_activeEffect == effect || !m_activeEffect) && effect->duration() > 0) {
+        m_activeEffect = const_cast<QFeedbackHapticsEffect*>(effect);
+        m_stateChangeTimerId = QObject::startTimer(m_activeEffect->duration());
+        qCDebug(qtFeedbackDroidVibrator) << "Playing custom effect due to state change (" << m_activeEffect->duration() << "ms)";
+        vibrator_on(m_activeEffect->duration());
+    }
+}
+
+void QFeedbackDroidVibrator::stopCustomEffect(const QFeedbackHapticsEffect *effect)
+{
+    if (m_activeEffect == effect) {
+        qCDebug(qtFeedbackDroidVibrator) << "Stopping custom effect due to state change";
+        vibrator_off();
+        killTimer(m_stateChangeTimerId);
+        m_activeEffect = 0;
+        m_stateChangeTimerId = 0;
+    }
 }
