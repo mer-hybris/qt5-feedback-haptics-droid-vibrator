@@ -51,7 +51,7 @@
 
 #include <hardware_legacy/vibrator.h>
 
-Q_LOGGING_CATEGORY(qtFeedbackDroidVibrator, "Qt.Feedback.DroidVibrator")
+Q_LOGGING_CATEGORY(qtFeedbackDroidVibrator, "qt.Feedback.DroidVibrator")
 
 QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
     : QObject(parent)
