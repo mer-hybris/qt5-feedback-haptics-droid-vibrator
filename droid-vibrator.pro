@@ -12,11 +12,7 @@ OTHER_FILES += droid-vibrator.json
 
 CONFIG += link_pkgconfig
 PKGCONFIG += android-headers libhardware libvibrator
-DEFINES += 'DROID_VIBRATOR_SETTINGS=\'\"$$[QT_INSTALL_PLUGINS]/feedback/droid-vibrator.ini\"\''
-
-settings.files = droid-vibrator.ini
-settings.path = $$[QT_INSTALL_PLUGINS]/feedback
-INSTALLS += settings
+DEFINES += 'DROID_VIBRATOR_SETTINGS=\'\"$$[QT_INSTALL_PLUGINS]/feedback/droid-vibrator-device.ini\"\''
 
 target.path = $$[QT_INSTALL_PLUGINS]/feedback
 INSTALLS += target
