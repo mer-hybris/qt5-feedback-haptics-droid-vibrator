@@ -25,7 +25,6 @@ BuildRequires:  libprofile-qt5-devel
 %defattr(-,root,root,-)
 %{_libdir}/qt5/plugins/feedback/libqtfeedback_droid-vibrator.so
 %{_libdir}/qt5/plugins/feedback/droid-vibrator.json
-%{_libdir}/qt5/plugins/feedback/droid-vibrator.ini
 
 %prep
 %setup -q -n %{name}-%{version}
