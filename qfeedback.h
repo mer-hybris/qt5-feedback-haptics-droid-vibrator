@@ -49,6 +49,13 @@
 
 #include <profile.h>
 
+#include <android-version.h>
+#if ANDROID_VERSION_MAJOR >= 7
+#include <hardware/vibrator.h>
+#else
+#include <hardware_legacy/vibrator.h>
+#endif
+
 Q_DECLARE_LOGGING_CATEGORY(qtFeedbackDroidVibrator)
 
 QT_BEGIN_HEADER
@@ -95,6 +102,9 @@ private:
     QFeedbackHapticsEffect *m_activeEffect;
     bool m_actuatorEnabled;
     int m_stateChangeTimerId;
+#if ANDROID_VERSION_MAJOR >= 7
+    vibrator_device_t *dev;
+#endif
 };
 
 QT_END_HEADER
