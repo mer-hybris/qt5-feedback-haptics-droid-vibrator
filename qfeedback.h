@@ -103,7 +103,7 @@ private:
     bool m_actuatorEnabled;
     int m_stateChangeTimerId;
 #if ANDROID_VERSION_MAJOR >= 7
-    vibrator_device_t *dev;
+    vibrator_device_t *m_dev;
 #endif
 };
 
