@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2014 Jolla Ltd.
+** Copyright (C) 2014,2018 Jolla Ltd.
 ** Contact: Thomas Perl <thomas.perl@jolla.com>
 **
 ** This file is part of the QtFeedback Droid Vibrator Plugin.
@@ -49,12 +49,7 @@
 
 #include <profile.h>
 
-#include <android-version.h>
-#if ANDROID_VERSION_MAJOR >= 7
-#include <hardware/vibrator.h>
-#else
-#include <hardware_legacy/vibrator.h>
-#endif
+#include "vibratorimplementation.h"
 
 Q_DECLARE_LOGGING_CATEGORY(qtFeedbackDroidVibrator)
 
@@ -102,9 +97,7 @@ private:
     QFeedbackHapticsEffect *m_activeEffect;
     bool m_actuatorEnabled;
     int m_stateChangeTimerId;
-#if ANDROID_VERSION_MAJOR >= 7
-    vibrator_device_t *m_dev;
-#endif
+    VibratorImplementation m_vibrator;
 };
 
 QT_END_HEADER
