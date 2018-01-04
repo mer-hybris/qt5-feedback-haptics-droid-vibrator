@@ -1,5 +1,5 @@
 Name: qt5-feedback-haptics-droid-vibrator
-Version: 0.0.5
+Version: 0.0.8
 Release: 1
 Summary: Haptic feedback plugin using Droid Vibrator from libhybris
 Group: System/Plugins
@@ -17,6 +17,7 @@ BuildRequires:  pkgconfig(android-headers)
 BuildRequires:  pkgconfig(libhardware)
 BuildRequires:  pkgconfig(libvibrator)
 BuildRequires:  libprofile-qt5-devel
+Conflicts:      qt5-feedback-haptics-native-vibrator
 
 %description
 %{summary}.
