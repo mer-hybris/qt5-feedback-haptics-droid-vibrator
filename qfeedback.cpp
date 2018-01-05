@@ -62,22 +62,13 @@ QFeedbackDroidVibrator::QFeedbackDroidVibrator(QObject *parent)
     , m_actuator(createFeedbackActuator(this, 2))
     , m_activeEffect(Q_NULLPTR)
     , m_actuatorEnabled(true)
-#if ANDROID_VERSION_MAJOR >= 7
-    , m_dev(NULL)
-#endif
+    , m_vibrator()
 {
     qCDebug(qtFeedbackDroidVibrator) << "Initializing plugin";
 
-#if (ANDROID_VERSION_MAJOR >= 7)
-    struct hw_module_t *hwmod;
-
-    hw_get_module(VIBRATOR_HARDWARE_MODULE_ID, (const hw_module_t **)(&hwmod));
-    Q_ASSERT(hwmod != NULL);
-
-    if (vibrator_open(hwmod, &m_dev) < 0) {
+    if (!m_vibrator.init()) {
         qCCritical(qtFeedbackDroidVibrator) << "Unable to open vibrator device";
     }
-#endif
 
     // Defaults
     m_durations[QFeedbackEffect::Press] = 20;
@@ -182,12 +173,7 @@ bool QFeedbackDroidVibrator::play(QFeedbackEffect::Effect effect)
         case QFeedbackEffect::Disappear:
         case QFeedbackEffect::Move:
             qCDebug(qtFeedbackDroidVibrator) << "Playing effect #" << effect << "(" << m_durations[effect] << "ms)";
-#if ANDROID_VERSION_MAJOR >= 7
-            if (m_dev)
-                m_dev->vibrator_on(m_dev, m_durations[effect]);
-#else
-            vibrator_on(m_durations[effect]);
-#endif
+            m_vibrator.on(m_durations[effect]);
             return true;
         default:
             qCDebug(qtFeedbackDroidVibrator) << "Unknown or undefined effect #" << effect;
@@ -287,13 +273,7 @@ void QFeedbackDroidVibrator::startCustomEffect(const QFeedbackHapticsEffect *eff
         m_activeEffect = const_cast<QFeedbackHapticsEffect*>(effect);
         m_stateChangeTimerId = QObject::startTimer(m_activeEffect->duration());
         qCDebug(qtFeedbackDroidVibrator) << "Playing custom effect due to state change (" << m_activeEffect->duration() << "ms)";
-#if ANDROID_VERSION_MAJOR >= 7
-        if (m_dev)
-            m_dev->vibrator_on(m_dev, m_activeEffect->duration());
-#else
-        vibrator_on(m_activeEffect->duration());
-#endif
-
+        m_vibrator.on(m_activeEffect->duration());
     }
 }
 
@@ -301,12 +281,7 @@ void QFeedbackDroidVibrator::stopCustomEffect(const QFeedbackHapticsEffect *effe
 {
     if (m_activeEffect == effect) {
         qCDebug(qtFeedbackDroidVibrator) << "Stopping custom effect due to state change";
-#if ANDROID_VERSION_MAJOR >= 7
-        if (m_dev)
-            m_dev->vibrator_off(m_dev);
-#else
-        vibrator_off();
-#endif
+        m_vibrator.off();
         killTimer(m_stateChangeTimerId);
         m_activeEffect = 0;
         m_stateChangeTimerId = 0;
