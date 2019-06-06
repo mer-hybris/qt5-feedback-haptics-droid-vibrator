@@ -47,52 +47,87 @@
 #include <unistd.h>
 #include <cstdio>
 
-#define DEFAULT_NATIVE_FILE_PATH "/sys/class/timed_output/vibrator/enable"
+#define ACTIVATE_ON     (1)
+#define ACTIVATE_OFF    (0)
+
+struct file_location {
+    const char *duration;
+    const char *activate;
+};
+
+static const struct file_location file_locations[] = {
+    { "/sys/class/timed_output/vibrator/enable",    NULL },
+    { "/sys/class/leds/vibrator/duration",          "/sys/class/leds/vibrator/activate" },
+};
 
 struct VibratorImplementationPrivate {
-    void vibrator_write(uint32_t value);
-    int fd;
+    void vibrator_write(int fd, uint32_t value);
+    int duration_fd;
+    int activate_fd;
 };
 
 VibratorImplementation::VibratorImplementation()
     : d_ptr(new VibratorImplementationPrivate())
 {
-    d_ptr->fd = -1;
+    d_ptr->duration_fd = -1;
+    d_ptr->activate_fd = -1;
 }
 
 VibratorImplementation::~VibratorImplementation()
 {
-    if (d_ptr->fd > 0) {
-        close(d_ptr->fd);
-    }
+    if (d_ptr->duration_fd >= 0)
+        close(d_ptr->duration_fd);
+
+    if (d_ptr->activate_fd >= 0)
+        close(d_ptr->activate_fd);
 
     delete d_ptr;
 }
 
 bool VibratorImplementation::init()
 {
-    if (d_ptr->fd > 0) {
+    if (d_ptr->duration_fd >= 0)
         return true;
+
+    for (unsigned i = 0; i < sizeof(file_locations) / sizeof(file_locations[0]); i++) {
+        const char *duration_path = file_locations[i].duration;
+        const char *activate_path = file_locations[i].activate;
+
+        if ((d_ptr->duration_fd = open(duration_path, O_WRONLY)) < 0)
+            continue;
+
+        if (activate_path) {
+            if ((d_ptr->activate_fd = open(activate_path, O_WRONLY)) < 0) {
+                close(d_ptr->duration_fd);
+                d_ptr->duration_fd = -1;
+                continue;
+            }
+        }
+
+        break;
     }
 
-    if ((d_ptr->fd = open(DEFAULT_NATIVE_FILE_PATH, O_WRONLY)) < 0) {
+    if (d_ptr->duration_fd < 0)
         return false;
-    }
 
     return true;
 }
 
 void VibratorImplementation::on(uint32_t duration_ms)
 {
-    d_ptr->vibrator_write(duration_ms);
+    d_ptr->vibrator_write(d_ptr->duration_fd, duration_ms);
+    if (d_ptr->duration_fd >= 0)
+        d_ptr->vibrator_write(d_ptr->activate_fd, ACTIVATE_ON);
 }
 
 void VibratorImplementation::off()
 {
-    d_ptr->vibrator_write(0);
+    d_ptr->vibrator_write(d_ptr->duration_fd, ACTIVATE_OFF);
+    if (d_ptr->activate_fd >= 0)
+        d_ptr->vibrator_write(d_ptr->activate_fd, ACTIVATE_OFF);
 }
 
-void VibratorImplementationPrivate::vibrator_write(uint32_t value)
+void VibratorImplementationPrivate::vibrator_write(int fd, uint32_t value)
 {
     char value_str[12]; /* fits UINT32_MAX value with newline */
     int length;
