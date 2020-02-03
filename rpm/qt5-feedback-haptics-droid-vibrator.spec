@@ -2,9 +2,8 @@ Name: qt5-feedback-haptics-droid-vibrator
 Version: 0.0.8
 Release: 1
 Summary: Haptic feedback plugin using Droid Vibrator from libhybris
-Group: System/Plugins
-License: LGPLv2.1
-URL: https://github.com/mer-hybris/qt-mobility-haptics-droid-vibrator
+License: LGPLv2
+URL: https://github.com/mer-hybris/qt5-feedback-haptics-droid-vibrator
 Source0: %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
