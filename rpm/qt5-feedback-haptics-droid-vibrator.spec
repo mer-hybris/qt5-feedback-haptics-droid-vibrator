@@ -11,7 +11,7 @@ Requires:	libprofile-qt5 >= 0.34.0.8
 BuildRequires:  pkgconfig(Qt5Core)
 BuildRequires:  pkgconfig(Qt5Gui)
 BuildRequires:  pkgconfig(Qt5DBus)
-BuildRequires:  pkgconfig(Qt0Feedback)
+BuildRequires:  pkgconfig(Qt5Feedback)
 BuildRequires:  pkgconfig(android-headers)
 BuildRequires:  pkgconfig(libhardware)
 BuildRequires:  pkgconfig(libvibrator)
