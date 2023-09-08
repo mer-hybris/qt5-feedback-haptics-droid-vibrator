@@ -53,8 +53,6 @@
 
 Q_DECLARE_LOGGING_CATEGORY(qtFeedbackDroidVibrator)
 
-QT_BEGIN_HEADER
-
 class QFeedbackDroidVibrator : public QObject, public QFeedbackHapticsInterface, public QFeedbackThemeInterface {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtFeedbackPlugin" FILE "droid-vibrator.json")
@@ -99,7 +97,5 @@ private:
     int m_stateChangeTimerId;
     VibratorImplementation m_vibrator;
 };
-
-QT_END_HEADER
 
 #endif // QFEEDBACK_DROID_VIBRATOR_H
