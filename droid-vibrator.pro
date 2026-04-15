@@ -1,7 +1,9 @@
 TEMPLATE = lib
 
-QT += core feedback
-CONFIG += qt plugin hide_symbols
+QT += core
+CONFIG += qt plugin hide_symbols link_pkgconfig
+
+PKGCONFIG += Qt$${QT_MAJOR_VERSION}Feedback
 
 TARGET = $$qtLibraryTarget(qtfeedback_droid-vibrator)
 PLUGIN_TYPE = feedback
@@ -15,7 +17,6 @@ DEFINES += 'DROID_VIBRATOR_SETTINGS=\'\"$$[QT_INSTALL_PLUGINS]/feedback/droid-vi
 native_vibrator {
     SOURCES += vibratorimplementation_native.cpp
 } else {
-    CONFIG += link_pkgconfig
     PKGCONFIG += android-headers libhardware libvibrator
     SOURCES += vibratorimplementation_hal.cpp
 }
